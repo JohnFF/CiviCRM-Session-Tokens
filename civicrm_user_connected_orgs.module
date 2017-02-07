@@ -126,7 +126,6 @@ function civicrm_user_connected_orgs_tokens($type, $tokens, array $data = array(
 
 function civicrm_user_connected_orgs_views_pre_view(&$view, &$display_id, &$args){
   
-  beds24_api();
   
   $filters = $view->get_items('filter', $display_id);
   foreach ($filters as &$filter) {
