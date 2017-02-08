@@ -7,8 +7,7 @@
 */
 class civicrm_user_connected_orgs_field_term_path extends views_handler_field_field {
 
-  function
-document_self_tokens(&$tokens) {
+  function document_self_tokens(&$tokens) {
     watchdog('civicrm_user_connected_orgs', '1' , array(), WATCHDOG_ERROR);
     $field = $this->field_info;
     foreach ($field['columns'] as $id => $column) {
@@ -18,8 +17,7 @@ document_self_tokens(&$tokens) {
     }
   }
 
-  function
-add_self_tokens(&$tokens, $item) {
+  function add_self_tokens(&$tokens, $item) {
     watchdog('civicrm_user_connected_orgs', '2' , array(), WATCHDOG_ERROR);
     $field = $this->field_info;
     foreach ($field['columns'] as $id => $column) {
