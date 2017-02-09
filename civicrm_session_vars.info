@@ -5,4 +5,3 @@ package = "CiviCRM"
 dependencies[] = civicrm
 dependencies[] = views_ui
 dependencies[] = token
-files[] = 'civicrm_user_connected_orgs.inc'
