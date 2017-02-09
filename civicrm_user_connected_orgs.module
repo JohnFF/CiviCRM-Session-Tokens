@@ -28,8 +28,6 @@ function civicrm_user_connected_orgs_user_login($edit, $account) {
     }
 
     // 2. Then pass their ids as parameters to the get command.
-
-
     $getActiveMembershipParams = array(
       'sequential' => 1,
       'status_id' => $currentMembershipTypeIds,
@@ -39,7 +37,13 @@ function civicrm_user_connected_orgs_user_login($edit, $account) {
     );
     $activeMembershipDetails = civicrm_api3('Membership', 'get', $getActiveMembershipParams);
 
-    $_SESSION['civicrm_user_connected_orgs']['active_memberships'] = $activeMembershipDetails['values'];
+    $membershipByType = array();
+
+    foreach ($activeMembershipDetails['values'] as $eachMembership) {
+      $membershipByType[serialize($eachMembership['name'])] = $eachMembership;
+    }
+
+    $_SESSION['civicrm_user_connected_orgs']['active_memberships'] = $membershipByType;
 
     // Populate active relationships.
     $activeRelationshipDetailsA = civicrm_api3('Relationship', 'get', array(
