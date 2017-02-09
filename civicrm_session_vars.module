@@ -3,12 +3,12 @@
 /**
  * Implements hook_user_login().
  */
-function civicrm_user_connected_orgs_user_login($edit, $account) {
+function civicrm_session_vars_user_login($edit, $account) {
   civicrm_initialize();
 
   try {
     // Populate contact details.
-    $_SESSION['civicrm_user_connected_orgs'] = civicrm_api3('UFMatch', 'getsingle', array(
+    $_SESSION['civicrm_session_vars'] = civicrm_api3('UFMatch', 'getsingle', array(
       'sequential' => 1,
       'uf_id' => $account->uid,
     ));
@@ -28,59 +28,66 @@ function civicrm_user_connected_orgs_user_login($edit, $account) {
     }
 
     // 2. Then pass their ids as parameters to the get command.
-    $activeMembershipDetails = civicrm_api3('Membership', 'get', array(
+    $getActiveMembershipParams = array(
       'sequential' => 1,
       'status_id' => $currentMembershipTypeIds,
-      'membership_type_id' => $currentMembershipTypeIds,
-      'contact_id' => $_SESSION['civicrm_user_connected_orgs']['contact_id'],
+      'membership_type_id' => array('IN' => $currentMembershipTypeIds),
+      'contact_id' => $_SESSION['civicrm_session_vars']['contact_id'],
       'length' => 0,
-    ));
+    );
+    $activeMembershipDetails = civicrm_api3('Membership', 'get', $getActiveMembershipParams);
 
-    $_SESSION['civicrm_user_connected_orgs']['active_memberships'] = $activeMembershipDetails['values'];
+    $membershipByType = array();
+
+    foreach ($activeMembershipDetails['values'] as $eachMembership) {
+      $membershipByType[serialize($eachMembership['name'])] = $eachMembership;
+    }
+
+    $_SESSION['civicrm_session_vars']['active_memberships'] = $membershipByType;
 
     // Populate active relationships.
     $activeRelationshipDetailsA = civicrm_api3('Relationship', 'get', array(
       'sequential' => 1,
-      'contact_id_a' => $_SESSION['civicrm_user_connected_orgs']['contact_id'],
+      'contact_id_a' => $_SESSION['civicrm_session_vars']['contact_id'],
       'is_active' => true,
       'length' => 0,
     ));
 
-    $_SESSION['civicrm_user_connected_orgs']['active_relationships_a'] = $activeRelationshipDetailsA['values'];
+    $_SESSION['civicrm_session_vars']['active_relationships_a'] = $activeRelationshipDetailsA['values'];
 
     $activeRelationshipDetailsB = civicrm_api3('Relationship', 'get', array(
       'sequential' => 1,
-      'contact_id_b' => $_SESSION['civicrm_user_connected_orgs']['contact_id'],
+      'contact_id_b' => $_SESSION['civicrm_session_vars']['contact_id'],
       'is_active' => true,
       'length' => 0,
     ));
 
-    $_SESSION['civicrm_user_connected_orgs']['active_relationships_b'] = $activeRelationshipDetailsB['values'];
+    $_SESSION['civicrm_session_vars']['active_relationships_b'] = $activeRelationshipDetailsB['values'];
 
   } catch (Exception $ex) {
     drupal_set_message($ex->getMessage(), 'error');
   }
 }
 
-function civicrm_user_connected_orgs_token_info() {
+function civicrm_session_vars_token_info() {
   $info = array();
 
-  $info['types']['current_user_civicrm'] = array(
+  $info['types']['civicrm_session_vars'] = array(
     'name' => t('Current user CiviCRM'),
     'description' => t('Tokens related to the CiviCRM details of the logged in user.'),
   );
 
-  $info['tokens']['current_user_civicrm']['contact_id'] = array(
+  $info['tokens']['civicrm_session_vars']['contact_id'] = array(
     'name' => t('Contact ID'),
     'description' => t('The CiviCRM Contact ID of the logged in user.'),
   );
 
-  $info['tokens']['current_user_civicrm']['membership_owner_id'] = array(
+  $info['tokens']['civicrm_session_vars']['membership_owner_id'] = array(
     'name' => t('Membership Owner ID'),
     'description' => t('The CiviCRM Contact ID of the parent of the first active membership with a parent id of the logged in user.'),
   );
 
-  $info['tokens']['current_user_civicrm']['employer_id'] = array(
+  $info['tokens']['civicrm_session_vars']['employer_id'] = array(
     'name' => t('Contact ID'),
     'description' => t('The CiviCRM Contact ID of the first active employer relationship of the logged in user.'),
   );
@@ -91,11 +98,11 @@ function civicrm_user_connected_orgs_token_info() {
 /**
  * Implements hook_tokens().
  */
-function civicrm_user_connected_orgs_tokens($type, $tokens, array $data = array(), array $options = array()) {
+function civicrm_session_vars_tokens($type, $tokens, array $data = array(), array $options = array()) {
   civicrm_initialize();
   
-  if ($type != 'current_user_civicrm') {
-    return;
+  if ($type != 'civicrm_session_vars') {
+    return array();
   }
 
   $replacements = array();
@@ -103,10 +110,10 @@ function civicrm_user_connected_orgs_tokens($type, $tokens, array $data = array(
   foreach ($tokens as $name => $original) {
     switch ($name) {
       case 'contact_id':
-        $replacements[$original] = $_SESSION['civicrm_user_connected_orgs']['contact_id'];
+        $replacements[$original] = $_SESSION['civicrm_session_vars']['contact_id'];
         break;
       case 'membership_owner_id':
-        foreach ($_SESSION['civicrm_user_connected_orgs']['active_memberships'] as $eachMembership) {
+        foreach ($_SESSION['civicrm_session_vars']['active_memberships'] as $eachMembership) {
           if (array_key_exists('owner_membership_id', $eachMembership)) {
             $ownerMembershipId = civicrm_api3('Membership', 'getvalue', array(
               'sequential' => 1,
@@ -124,9 +131,8 @@ function civicrm_user_connected_orgs_tokens($type, $tokens, array $data = array(
   return $replacements;
 }
 
-function civicrm_user_connected_orgs_views_pre_view(&$view, &$display_id, &$args){
+function civicrm_session_vars_views_pre_view(&$view, &$display_id, &$args){
   
-  beds24_api();
   
   $filters = $view->get_items('filter', $display_id);
   foreach ($filters as &$filter) {
