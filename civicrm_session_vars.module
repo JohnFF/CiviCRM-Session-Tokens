@@ -39,8 +39,14 @@ function civicrm_session_vars_user_login($edit, $account) {
 
     $membershipByType = array();
 
+    $membershipTypeDetails = civicrm_api3('MembershipType', 'get', array('sequential' => 0, 'length' => 0));
+
     foreach ($activeMembershipDetails['values'] as $eachMembership) {
-      $membershipByType[serialize($eachMembership['name'])] = $eachMembership;
+      $membershipTypeName = $membershipTypeDetails['values'][$eachMembership['membership_type_id']]['name'];
+      $activeMembershipPrefix = 'active_memberships_' . str_replace(' ', '_', strtolower($membershipTypeName)) . '_';
+      foreach ($eachMembership as $key => $value) {
+        $_SESSION['civicrm_session_vars'][$activeMembershipPrefix . $key] = $value;
+      }
     }
 
     $_SESSION['civicrm_session_vars']['active_memberships'] = $membershipByType;
@@ -63,6 +69,8 @@ function civicrm_session_vars_user_login($edit, $account) {
     ));
 
     $_SESSION['civicrm_session_vars']['active_relationships_b'] = $activeRelationshipDetailsB['values'];
+
+    watchdog('CiviCRM Session Vars', '' . print_r($_SESSION, TRUE), array(), WATCHDOG_DEBUG);
 
   } catch (Exception $ex) {
     drupal_set_message($ex->getMessage(), 'error');
