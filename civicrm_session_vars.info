@@ -1,7 +1,0 @@
-core = "7.x"
-name = "CiviCRM Session Variables"
-description = "Adds some helpful functionality for dashboard builders: tokens for views and session variables."
-package = "CiviCRM"
-dependencies[] = civicrm
-dependencies[] = views_ui
-dependencies[] = token

@@ -3,12 +3,12 @@
 /**
  * Implements hook_user_login().
  */
-function civicrm_session_vars_user_login($edit, $account) {
+function civicrm_session_tokens_user_login($edit, $account) {
   civicrm_initialize();
 
   try {
     // Populate contact details.
-    $_SESSION['civicrm_session_vars'] = civicrm_api3('UFMatch', 'getsingle', array(
+    $_SESSION['civicrm_session_tokens'] = civicrm_api3('UFMatch', 'getsingle', array(
       'sequential' => 1,
       'uf_id' => $account->uid,
     ));
@@ -32,7 +32,7 @@ function civicrm_session_vars_user_login($edit, $account) {
       'sequential' => 1,
       'status_id' => $currentMembershipTypeIds,
       'membership_type_id' => array('IN' => $currentMembershipTypeIds),
-      'contact_id' => $_SESSION['civicrm_session_vars']['contact_id'],
+      'contact_id' => $_SESSION['civicrm_session_tokens']['contact_id'],
       'length' => 0,
     );
     $activeMembershipDetails = civicrm_api3('Membership', 'get', $getActiveMembershipParams);
@@ -45,30 +45,30 @@ function civicrm_session_vars_user_login($edit, $account) {
       $membershipTypeName = $membershipTypeDetails['values'][$eachMembership['membership_type_id']]['name'];
       $activeMembershipPrefix = 'active_memberships_' . str_replace(' ', '_', strtolower($membershipTypeName)) . '_';
       foreach ($eachMembership as $key => $value) {
-        $_SESSION['civicrm_session_vars'][$activeMembershipPrefix . $key] = $value;
+        $_SESSION['civicrm_session_tokens'][$activeMembershipPrefix . $key] = $value;
       }
     }
 
-    $_SESSION['civicrm_session_vars']['active_memberships'] = $membershipByType;
+    $_SESSION['civicrm_session_tokens']['active_memberships'] = $membershipByType;
 
     // Populate active relationships.
     $activeRelationshipDetailsA = civicrm_api3('Relationship', 'get', array(
       'sequential' => 1,
-      'contact_id_a' => $_SESSION['civicrm_session_vars']['contact_id'],
+      'contact_id_a' => $_SESSION['civicrm_session_tokens']['contact_id'],
       'is_active' => true,
       'length' => 0,
     ));
 
-    $_SESSION['civicrm_session_vars']['active_relationships_a'] = $activeRelationshipDetailsA['values'];
+    $_SESSION['civicrm_session_tokens']['active_relationships_a'] = $activeRelationshipDetailsA['values'];
 
     $activeRelationshipDetailsB = civicrm_api3('Relationship', 'get', array(
       'sequential' => 1,
-      'contact_id_b' => $_SESSION['civicrm_session_vars']['contact_id'],
+      'contact_id_b' => $_SESSION['civicrm_session_tokens']['contact_id'],
       'is_active' => true,
       'length' => 0,
     ));
 
-    $_SESSION['civicrm_session_vars']['active_relationships_b'] = $activeRelationshipDetailsB['values'];
+    $_SESSION['civicrm_session_tokens']['active_relationships_b'] = $activeRelationshipDetailsB['values'];
 
     watchdog('CiviCRM Session Vars', '' . print_r($_SESSION, TRUE), array(), WATCHDOG_DEBUG);
 
@@ -77,16 +77,16 @@ function civicrm_session_vars_user_login($edit, $account) {
   }
 }
 
-function civicrm_session_vars_token_info() {
+function civicrm_session_tokens_token_info() {
   $info = array();
 
-  $info['types']['civicrm_session_vars'] = array(
+  $info['types']['civicrm_session_tokens'] = array(
     'name' => t('Current user CiviCRM'),
     'description' => t('Tokens related to the CiviCRM details of the logged in user.'),
   );
 
-  foreach ($_SESSION['civicrm_session_vars'] as $key => $value) {
-    $info['tokens']['civicrm_session_vars'][$key] = array ('name' => t("test $key"), 'description' => t('test'));
+  foreach ($_SESSION['civicrm_session_tokens'] as $key => $value) {
+    $info['tokens']['civicrm_session_tokens'][$key] = array ('name' => t("test $key"), 'description' => t('test'));
   }
   return $info;
 }
@@ -94,20 +94,20 @@ function civicrm_session_vars_token_info() {
 /**
  * Implements hook_tokens().
  */
-function civicrm_session_vars_tokens($type, $tokens, array $data = array(), array $options = array()) {
+function civicrm_session_tokens_tokens($type, $tokens, array $data = array(), array $options = array()) {
   civicrm_initialize();
   
-  if ($type != 'civicrm_session_vars') {
+  if ($type != 'civicrm_session_tokens') {
     return array();
   }
 
   foreach ($tokens as $name => $original) {
-    $replacements[$original] = $_SESSION['civicrm_session_vars'][$name];
+    $replacements[$original] = $_SESSION['civicrm_session_tokens'][$name];
   }
   return $replacements;
 }
 
-function civicrm_session_vars_views_pre_view(&$view, &$display_id, &$args){
+function civicrm_session_tokens_views_pre_view(&$view, &$display_id, &$args){
   
   
   $filters = $view->get_items('filter', $display_id);
