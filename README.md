@@ -23,7 +23,7 @@ The CiviCRM Session Tokens module allows site builders to gain access to a
  In memberships:
  active_memberships_{name in lowercase spaces replaced by underscores}_{values from API get call, i.e. id, membership_owner_id}
  
- My currently logged in user (active membership of type 'Charity Partner' and active relationship type 'Employee of' has the following tokens:
+ My currently logged in user (active membership of type 'Charity Partner' and active relationship type 'Employee of') has the following tokens:
 
 [civicrm_session_tokens:id] => 2 
 [civicrm_session_tokens:domain_id] => 1 
