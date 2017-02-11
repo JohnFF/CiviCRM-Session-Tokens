@@ -1,82 +1,223 @@
 <?php
 
 /**
- * Implements hook_user_login().
+ * @file
+ *
+ * The CiviCRM Session Tokens module allows site builders to gain access to a
+ * wide range of variables associated with the currently logged in CiviCRM user.
+ *
+ * For example, it provides a token of the user's membership's owner id. It
+ * provides each value for (one active instance of) each membership type, and one
+ * relationship type.
+ *
+ * It also allows any token to be allowed as a filter in a module.
+ *
+ * The current use case is to provide a portal that only shows contacts with
+ * relationships to the logged in user's employer. This is done by filtering on:
+ *
+ *   contact_a_b = [civicrm_session_tokens:active_relationships_a_employee_of_contact_id_b]
+ *
+ * The full list of tokens is included in a watchdog entry upon login. The
+ * relationships and memberships entries are generated based on their types' names:
+ *
+ * In relationships:
+ *
+ * If the user is contact_id_a: active_relationships_a_{name in lowercase spaces replaced by underscores}_{key from API get call, i.e. id, relationship_type_id}.
+ * If the user is contact_id_b: active_relationships_b_{name in lowercase spaces replaced by underscores}_{key from API get call, i.e. id, relationship_type_id}.
+ *
+ * In memberships:
+ * active_memberships_{name in lowercase spaces replaced by underscores}_{values from API get call, i.e. id, membership_owner_id}.
+ *
+ */
+
+/**
+ * Implements hook_help().
+ */
+function civicrm_session_tokens_help($path, $arg){
+  if ($path != 'admin/help#civicrm_session_tokens') {
+    return;
+  }
+
+  return " The CiviCRM Session Tokens module allows site builders to gain access to a
+ wide range of variables associated with the currently logged in CiviCRM user.<br/><br/>
+
+ For example, it provides a token of the user's membership's owner id. It
+ provides each value for (one active instance of) each membership type, and one
+ relationship type.<br/><br/>
+
+ It also allows any token to be allowed as a filter in a module.<br/><br/>
+
+ The current use case is to provide a portal that only shows contacts with
+ relationships to the logged in user's employer. This is done by filtering on:<br/><br/>
+
+   contact_a_b = [civicrm_session_tokens:active_relationships_a_employee_of_contact_id_b]<br/><br/>
+
+ The full list of tokens is included in a watchdog entry upon login. The
+ relationships and memberships entries are generated based on their types' names:<br/><br/>
+
+ In relationships:<br/><br/>
+
+ If the user is contact_id_a: active_relationships_a_{name in lowercase spaces replaced by underscores}_{key from API get call, i.e. id, relationship_type_id}.<br/>
+ If the user is contact_id_b: active_relationships_b_{name in lowercase spaces replaced by underscores}_{key from API get call, i.e. id, relationship_type_id}.<br/>
+<br/><br/>
+ In memberships:<br/><br/>
+ active_memberships_{name in lowercase spaces replaced by underscores}_{values from API get call, i.e. id, membership_owner_id}
+ <br/><br/>
+ My currently logged in user (active membership of type 'Charity Partner' and active relationship type 'Employee of' has the following tokens:
+
+[civicrm_session_tokens:id] => 2 <br/>
+[civicrm_session_tokens:domain_id] => 1 <br/>
+[civicrm_session_tokens:uf_id] => 2 <br/>
+[civicrm_session_tokens:uf_name] => john+1@civifirst.com <br/>
+[civicrm_session_tokens:contact_id] => 4 <br/>
+[civicrm_session_tokens:active_memberships_charity_partner_id] => 6 <br/>
+[civicrm_session_tokens:active_memberships_charity_partner_contact_id] => 4 <br/>
+[civicrm_session_tokens:active_memberships_charity_partner_membership_type_id] => 3 <br/>
+[civicrm_session_tokens:active_memberships_charity_partner_join_date] => 2017-02-09 <br/>
+[civicrm_session_tokens:active_memberships_charity_partner_status_id] => 1 <br/>
+[civicrm_session_tokens:active_memberships_charity_partner_owner_membership_id] => 5 <br/>
+[civicrm_session_tokens:active_memberships_charity_partner_is_test] => 0 <br/>
+[civicrm_session_tokens:active_memberships_charity_partner_is_pay_later] => 0 <br/>
+[civicrm_session_tokens:active_memberships_charity_partner_membership_name] => Charity Partner <br/>
+[civicrm_session_tokens:active_memberships_charity_partner_relationship_name] => Employee of <br/>
+[civicrm_session_tokens:active_memberships_charity_partner_related_contact_id] => 4 <br/>
+[civicrm_session_tokens:active_memberships] => Array ( ) <br/>
+[civicrm_session_tokens:active_relationships_a_employee_of_id] => 2 <br/>
+[civicrm_session_tokens:active_relationships_a_employee_of_contact_id_a] => 4 <br/>
+[civicrm_session_tokens:active_relationships_a_employee_of_contact_id_b] => 3 <br/>
+[civicrm_session_tokens:active_relationships_a_employee_of_relationship_type_id] => 5 <br/>
+[civicrm_session_tokens:active_relationships_a_employee_of_is_active] => 1 <br/>
+[civicrm_session_tokens:active_relationships_a_employee_of_is_permission_a_b] => 0 <br/>
+[civicrm_session_tokens:active_relationships_a_employee_of_is_permission_b_a] => 0
+"
+  ;
+}
+
+/**
+ * Initialises the UFMatch details into the Session Variable.
+ *
+ * @param Object $account
+ */
+function civicrm_session_tokens_init_base($account) {
+  // Populate contact details.
+  $_SESSION['civicrm_session_tokens'] = civicrm_api3('UFMatch', 'getsingle', array(
+    'sequential' => 1,
+    'uf_id' => $account->uid,
+  ));
+}
+
+/**
+ * Initialises active memberships in the session variable.
+ * Does one of each Membership type.
+ */
+function civicrm_session_tokens_init_memberships() {
+  // Populate active memberships.
+  // 1. First get the list of active membership types.
+  $current_membership_types = civicrm_api3('MembershipStatus', 'get', array(
+    'sequential' => 1,
+  ));
+
+  $membership_type_ids = array();
+  $current_membership_type_ids = array();
+  foreach ($current_membership_types['values'] as $each_current_membership_type) {
+    $membership_type_ids[] = $each_current_membership_type['id'];
+    if ($each_current_membership_type['is_current_member']) {
+      $current_membership_type_ids[] = $each_current_membership_type['id'];
+    }
+  }
+
+  // 2. Then pass their ids as parameters to the get command.
+  $get_active_membership_params = array(
+    'sequential' => 1,
+    'status_id' => $current_membership_type_ids,
+    'membership_type_id' => array('IN' => $current_membership_type_ids),
+    'contact_id' => $_SESSION['civicrm_session_tokens']['contact_id'],
+    'length' => 0,
+  );
+  $active_membership_details = civicrm_api3('Membership', 'get', $get_active_membership_params);
+
+  $membership_type_details = civicrm_api3('MembershipType', 'get', array('sequential' => 0, 'length' => 0));
+
+  foreach ($active_membership_details['values'] as $each_membership) {
+    $membership_type_name = $membership_type_details['values'][$each_membership['membership_type_id']]['name'];
+    $active_membership_prefix = 'active_memberships_' . str_replace(' ', '_', strtolower($membership_type_name)) . '_';
+    foreach ($each_membership as $key => $value) {
+      $_SESSION['civicrm_session_tokens'][$active_membership_prefix . $key] = $value;
+    }
+  }
+}
+
+/**
+ * Initialises active relationships in the session variable.
+ */
+function civicrm_session_tokens_init_relationships() {
+  $relationship_types_raw = civicrm_api3('RelationshipType', 'get', array(
+    'sequential' => 1,
+    'length' => 0,
+  ));
+
+  $relationship_type_keys_a = array();
+  $relationship_type_keys_b = array();
+
+  foreach ($relationship_types_raw['values'] as $each_relationship_type_raw) {
+    $relationship_type_keys_a[$each_relationship_type_raw['id']] = str_replace(' ', '_', strtolower($each_relationship_type_raw['name_a_b']));
+    $relationship_type_keys_b[$each_relationship_type_raw['id']] = str_replace(' ', '_', strtolower($each_relationship_type_raw['name_b_a']));
+  }
+
+  unset($relationship_types_raw); // Save memory.
+  // Populate active relationships.
+  civicrm_session_tokens_init_relationships_retrieve('a', $relationship_type_keys_a);
+  civicrm_session_tokens_init_relationships_retrieve('b', $relationship_type_keys_b);
+}
+
+/**
+ * Saves code duplication in civicrm_session_tokens_init_relationships by having
+ * a parameter for if the relationship is a to b or b to a.
+ *
+ * @param String $a_or_b Either the letter a or b
+ * @param Array $relationship_type_keys (relationship_type_id => normalised_name)
+ */
+function civicrm_session_tokens_init_relationships_retrieve($a_or_b, $relationship_type_keys) {
+  $active_relationship_details = civicrm_api3('Relationship', 'get', array(
+    'sequential' => 1,
+    "contact_id_$a_or_b" => $_SESSION['civicrm_session_tokens']['contact_id'],
+    'is_active' => TRUE,
+    'length' => 0,
+  ));
+
+  foreach ($active_relationship_details['values'] as $active_relationships) {
+    $prefix = 'active_relationships_' . $a_or_b . '_' . $relationship_type_keys[$active_relationships['relationship_type_id']] . '_';
+    foreach ($active_relationships as $key => $value) {
+      $_SESSION['civicrm_session_tokens'][$prefix . $key] = $value;
+    }
+  }
+}
+
+/**
+ * Implements hook_user_login(). On login, set all the session variables. These
+ * are the interpreted into tokens later.
  */
 function civicrm_session_tokens_user_login($edit, $account) {
   civicrm_initialize();
 
   try {
-    // Populate contact details.
-    $_SESSION['civicrm_session_tokens'] = civicrm_api3('UFMatch', 'getsingle', array(
-      'sequential' => 1,
-      'uf_id' => $account->uid,
-    ));
-    // Populate active memberships.
-    // 1. First get the list of active membership types.
-    $currentMembershipTypes = civicrm_api3('MembershipStatus', 'get', array(
-      'sequential' => 1,
-    ));
+    civicrm_session_tokens_init_base($account);
+    civicrm_session_tokens_init_memberships();
+    civicrm_session_tokens_init_relationships();
 
-    $membershipTypeIds = array();
-    $currentMembershipTypeIds = array();
-    foreach ($currentMembershipTypes['values'] as $eachCurrentMembershipType) {
-      $membershipTypeIds[] = $eachCurrentMembershipType['id'];
-      if ($eachCurrentMembershipType['is_current_member']) {
-        $currentMembershipTypeIds[] = $eachCurrentMembershipType['id'];
-      }
-    }
-
-    // 2. Then pass their ids as parameters to the get command.
-    $getActiveMembershipParams = array(
-      'sequential' => 1,
-      'status_id' => $currentMembershipTypeIds,
-      'membership_type_id' => array('IN' => $currentMembershipTypeIds),
-      'contact_id' => $_SESSION['civicrm_session_tokens']['contact_id'],
-      'length' => 0,
-    );
-    $activeMembershipDetails = civicrm_api3('Membership', 'get', $getActiveMembershipParams);
-
-    $membershipByType = array();
-
-    $membershipTypeDetails = civicrm_api3('MembershipType', 'get', array('sequential' => 0, 'length' => 0));
-
-    foreach ($activeMembershipDetails['values'] as $eachMembership) {
-      $membershipTypeName = $membershipTypeDetails['values'][$eachMembership['membership_type_id']]['name'];
-      $activeMembershipPrefix = 'active_memberships_' . str_replace(' ', '_', strtolower($membershipTypeName)) . '_';
-      foreach ($eachMembership as $key => $value) {
-        $_SESSION['civicrm_session_tokens'][$activeMembershipPrefix . $key] = $value;
-      }
-    }
-
-    $_SESSION['civicrm_session_tokens']['active_memberships'] = $membershipByType;
-
-    // Populate active relationships.
-    $activeRelationshipDetailsA = civicrm_api3('Relationship', 'get', array(
-      'sequential' => 1,
-      'contact_id_a' => $_SESSION['civicrm_session_tokens']['contact_id'],
-      'is_active' => true,
-      'length' => 0,
-    ));
-
-    $_SESSION['civicrm_session_tokens']['active_relationships_a'] = $activeRelationshipDetailsA['values'];
-
-    $activeRelationshipDetailsB = civicrm_api3('Relationship', 'get', array(
-      'sequential' => 1,
-      'contact_id_b' => $_SESSION['civicrm_session_tokens']['contact_id'],
-      'is_active' => true,
-      'length' => 0,
-    ));
-
-    $_SESSION['civicrm_session_tokens']['active_relationships_b'] = $activeRelationshipDetailsB['values'];
-
-    watchdog('CiviCRM Session Vars', '' . print_r($_SESSION, TRUE), array(), WATCHDOG_DEBUG);
-
-  } catch (Exception $ex) {
+    watchdog('CiviCRM Session Tokens', 'Tokens available for use: %1', array('%1' => print_r($_SESSION, TRUE)), WATCHDOG_DEBUG);
+  }
+  catch (Exception $ex) {
     drupal_set_message($ex->getMessage(), 'error');
   }
 }
 
+/**
+ * Implements hook_token_info.
+ * Iterates through the session variable and initialises tokens for them.
+ *
+ * @return Array
+ */
 function civicrm_session_tokens_token_info() {
   $info = array();
 
@@ -86,17 +227,24 @@ function civicrm_session_tokens_token_info() {
   );
 
   foreach ($_SESSION['civicrm_session_tokens'] as $key => $value) {
-    $info['tokens']['civicrm_session_tokens'][$key] = array ('name' => t("test $key"), 'description' => t('test'));
+    $info['tokens']['civicrm_session_tokens'][$key] = array('name' => t("test $key"), 'description' => t('test'));
   }
   return $info;
 }
 
 /**
- * Implements hook_tokens().
+ * Implements hook_tokens.
+ * Iterates through Session variables and performs any replacements.
+ *
+ * @param String $type
+ * @param Array $tokens
+ * @param Array $data
+ * @param Array $options
+ * @return Array
  */
 function civicrm_session_tokens_tokens($type, $tokens, array $data = array(), array $options = array()) {
   civicrm_initialize();
-  
+
   if ($type != 'civicrm_session_tokens') {
     return array();
   }
@@ -107,18 +255,25 @@ function civicrm_session_tokens_tokens($type, $tokens, array $data = array(), ar
   return $replacements;
 }
 
-function civicrm_session_tokens_views_pre_view(&$view, &$display_id, &$args){
-  
-  
+/**
+ * Implements hook_views_pre_view. This translates any tokens in the filter entry.
+ * So you can filter by contacts who have a relationship to the logged in user's
+ * membership owner.
+ *
+ * @param $view
+ * @param $display_id
+ * @param $args
+ */
+function civicrm_session_tokens_views_pre_view(&$view, &$display_id, &$args) {
   $filters = $view->get_items('filter', $display_id);
   foreach ($filters as &$filter) {
-    if (!array_key_exists('value', $filter)){
+    if (!array_key_exists('value', $filter)) {
       continue;
     }
-    if (!is_array($filter['value'])){
+    if (!is_array($filter['value'])) {
       continue;
     }
-    foreach($filter['value'] as $key => $value){
+    foreach ($filter['value'] as $key => $value) {
       $filter['value'][$key] = token_replace($value);
     }
     $filter = $view->set_item($display_id, 'filter', $filter['id'], $filter);
