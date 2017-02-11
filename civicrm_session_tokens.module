@@ -63,7 +63,7 @@ function civicrm_session_tokens_help($path, $arg){
  In memberships:<br/><br/>
  active_memberships_{name in lowercase spaces replaced by underscores}_{values from API get call, i.e. id, membership_owner_id}
  <br/><br/>
- My currently logged in user (active membership of type 'Charity Partner' and active relationship type 'Employee of' has the following tokens:
+ My currently logged in user (active membership of type 'Charity Partner' and active relationship type 'Employee of') has the following tokens:
 
 [civicrm_session_tokens:id] => 2 <br/>
 [civicrm_session_tokens:domain_id] => 1 <br/>
