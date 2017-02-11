@@ -5,7 +5,7 @@ The CiviCRM Session Tokens module allows site builders to gain access to a
  provides each value for (one active instance of) each membership type, and one
  relationship type.
 
- It also allows any token to be allowed as a filter in a module.
+ It also allows any token to be allowed as a filter in a view.
 
  The current use case is to provide a portal that only shows contacts with
  relationships to the logged in user's employer. This is done by filtering on:
