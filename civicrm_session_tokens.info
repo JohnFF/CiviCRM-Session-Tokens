@@ -1,0 +1,7 @@
+core = "7.x"
+name = "CiviCRM Session Tokens"
+description = "Adds some helpful functionality for dashboard builders: tokens (and session variables) about the logged in CiviCRM. Also interprets tokens in View Filter options. See help for more details."
+package = "CiviCRM"
+dependencies[] = civicrm
+dependencies[] = views_ui
+dependencies[] = token
