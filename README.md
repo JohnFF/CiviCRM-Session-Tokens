@@ -1,4 +1,4 @@
-#What it does
+# What it does
 
 The CiviCRM Session Tokens module allows site builders to gain access to a
 wide range of variables associated with the currently logged in CiviCRM user.
@@ -17,12 +17,12 @@ relationships to the logged in user's employer. This is done by filtering on:
 The full list of tokens is included in a watchdog entry upon login. The
 relationships and memberships entries are generated based on their types' names:
 
-###In relationships:
+### In relationships:
 
 If the user is contact_id_a: active_relationships_a_{name in lowercase spaces replaced by underscores}_{key from API get call, i.e. id, relationship_type_id}.
 If the user is contact_id_b: active_relationships_b_{name in lowercase spaces replaced by underscores}_{key from API get call, i.e. id, relationship_type_id}.
 
-###In memberships:
+### In memberships:
 
 active_memberships_{name in lowercase spaces replaced by underscores}_{values from API get call, i.e. id, membership_owner_id}
  
