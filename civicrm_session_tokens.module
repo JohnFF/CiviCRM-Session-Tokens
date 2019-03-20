@@ -198,7 +198,7 @@ function civicrm_session_tokens_init_relationships_retrieve($a_or_b, $relationsh
  * are the interpreted into tokens later.
  */
 function civicrm_session_tokens_user_login($edit, $account) {
-  civicrm_session_tokens_init($account);
+  civicrm_session_tokens_initialise($account);
 }
 
 /**
@@ -206,7 +206,7 @@ function civicrm_session_tokens_user_login($edit, $account) {
  * @param type $account
  * @param bool $refresh_if_already_set
  */
-function civicrm_session_tokens_init($account, $refresh_if_already_set = FALSE) {
+function civicrm_session_tokens_initialise($account, $refresh_if_already_set = FALSE) {
 
   if (array_key_exists('civicrm_session_tokens', $_SESSION) && !$refresh_if_already_set) {
     return;
